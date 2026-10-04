@@ -168,7 +168,7 @@
           })),
         ]),
         h("div", { class: "hero-visual", "aria-hidden": "true" }, [
-          h("div", { class: "hero-frame" }, site.logoImage ? h("img", { src: site.logoImage, alt: "" }) : site.logoEmoji),
+          h("div", { class: "hero-frame" }),
           h("div", { class: "hero-dots" }, [h("i"), h("i"), h("i")]),
         ]),
       ]),
