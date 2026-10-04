@@ -880,3 +880,134 @@ a.contact:hover { background: var(--pink-100); }
   .reveal { opacity: 1; transform: none; transition: none; }
   * { transition-duration: 0.01ms !important; }
 }
+
+
+/* =====================================================================
+ *  v1.2 디자인 테마 — 랜딩 페이지 와이어프레임 스타일
+ *  · 어두운 슬레이트 헤더·첫 화면, 연회색/흰색/어두운색 섹션 띠, 납작한 카드, 파란 강조색
+ *  · 위쪽 원래 규칙을 이 블록이 덮어씁니다. 예전 디자인으로 돌리려면 이 블록만 지우면 됩니다.
+ * ===================================================================== */
+:root {
+  --slate-900: #3b3f49;
+  --slate-800: #4a4f5b;
+  --slate-700: #5d6372;
+  --band: #eef0f3;
+  --accent: #3d6fa8;
+  --accent-dark: #325d8f;
+  /* 기존 색 이름을 새 팔레트로 바꿔 사이트 전체에 적용 */
+  --pink-50: #f5f6f8;
+  --pink-100: #e9ecf0;
+  --pink-200: #d7dce3;
+  --pink-400: #8b93a1;
+  --pink-500: #3d6fa8;
+  --purple-100: #e9ecf0;
+  --purple-200: #d7dce3;
+  --purple-400: #8b93a1;
+  --purple-600: #3d6fa8;
+  --ink: #2d3139;
+  --ink-soft: #636b78;
+  --card: #ffffff;
+  --line: #dde1e7;
+  --grad: linear-gradient(#3d6fa8, #3d6fa8);
+  --radius: 6px;
+  --radius-sm: 4px;
+  --shadow: 0 1px 2px rgba(25, 30, 40, 0.06), 0 1px 3px rgba(25, 30, 40, 0.05);
+  --shadow-hover: 0 8px 20px rgba(25, 30, 40, 0.10);
+}
+
+body { background: #ffffff; }
+h1, h2, h3, .brand-title, .hero-subtitle, .stat-value { font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+h2, h3 { font-weight: 700; letter-spacing: -0.01em; }
+a { color: var(--accent); }
+:focus-visible { outline-color: #8fb1d9; border-radius: 4px; }
+
+/* 헤더: 어두운 슬레이트 */
+.site-header { background: var(--slate-800); border-bottom: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.site-header.scrolled { box-shadow: 0 4px 16px rgba(20, 24, 32, 0.25); }
+.brand { color: #fff; }
+.brand-sub { color: #c4c9d1; }
+.brand-logo.has-img { background: #fff; }
+.brand-ver { color: #fff; background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.28); border-radius: 4px; }
+.site-nav a { color: #d6dae0; border-radius: 4px; }
+.site-nav a:hover { background: rgba(255, 255, 255, 0.10); color: #fff; }
+.site-nav a.active { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.lock-btn { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
+.lock-btn:hover { background: rgba(255, 255, 255, 0.22); }
+.nav-toggle { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
+.nav-toggle span { background: #fff; }
+
+/* 공통 요소: 납작한 카드·단색 버튼 */
+.section-head h2 { font-size: clamp(26px, 3.6vw, 32px); }
+.eyebrow { background: transparent; color: var(--accent); border-radius: 0; padding: 0; letter-spacing: 0.14em; }
+.card { border: 1px solid var(--line); }
+.card.lift:hover { transform: translateY(-2px); }
+.icon-bubble { background: var(--pink-100); border-radius: 6px; }
+.sub-title::before { width: 4px; border-radius: 2px; background: var(--accent); }
+.btn { border-radius: 4px; }
+.btn:hover { transform: none; }
+.btn-primary { background: var(--accent); box-shadow: none; }
+.btn-primary:hover { background: var(--accent-dark); }
+.btn-ghost { color: var(--ink); border-color: var(--line); }
+.btn-ghost:hover { background: var(--pink-50); }
+
+/* 첫 화면: 왼쪽 글 · 오른쪽 이미지 패널 */
+.hero { background: var(--slate-800); color: #fff; text-align: left; padding: 72px 0 60px; }
+.hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
+.hero-badge { background: transparent; border: 1px solid rgba(255, 255, 255, 0.35); color: #e3e6ea; border-radius: 4px; font-weight: 500; }
+.hero-dept { color: #c4c9d1; margin-top: 20px; font-size: 15px; }
+.hero h1 { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: #fff; font-size: clamp(34px, 5.4vw, 52px); font-weight: 700; letter-spacing: -0.02em; }
+.hero-subtitle { color: #fff; font-weight: 500; font-size: clamp(20px, 2.6vw, 26px); }
+.hero-desc { margin: 16px 0 0; color: #cfd3da; font-size: 16px; }
+.hero-actions { justify-content: flex-start; }
+.hero .btn-primary { background: #fff; color: var(--slate-800); }
+.hero .btn-primary:hover { background: #e9ecf0; }
+.hero .btn-ghost { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.45); }
+.hero .btn-ghost:hover { background: rgba(255, 255, 255, 0.08); }
+.hero-visual { position: relative; padding-right: 26px; }
+.hero-frame {
+  aspect-ratio: 4 / 3; display: grid; place-items: center; font-size: 64px;
+  background: var(--slate-700); border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.hero-frame img { width: 46%; aspect-ratio: 1; object-fit: cover; border-radius: 50%; background: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+.hero-dots { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: grid; gap: 10px; }
+.hero-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.45); }
+.hero-dots i:first-child { background: #fff; }
+/* 한눈에 보기: 어두운 바탕 위 반투명 줄 */
+.hero .card.quick { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: none; margin-top: 48px; }
+.hero .quick-item + .quick-item { border-left-color: rgba(255, 255, 255, 0.12); }
+.hero .quick-item .icon-bubble { background: rgba(255, 255, 255, 0.10); }
+.hero .quick-label { color: #b9bfc8; }
+.hero .quick-value { color: #fff; }
+
+/* 섹션 띠: 연회색 / 흰색 / 어두운색이 번갈아 */
+.stats { background: var(--band); padding: 48px 0; }
+#about, #guide, #faq { background: #ffffff; }
+#curriculum, #participate, #notices { background: var(--band); }
+#portfolio, #classroom { background: var(--slate-800); }
+#portfolio > .container > .section-head h2, #classroom > .container > .section-head h2,
+#portfolio > .container > .sub-title, #classroom > .container > .sub-title { color: #fff; }
+#portfolio > .container > .section-head .lead, #classroom > .container > .section-head .lead { color: #c4c9d1; }
+#portfolio > .container > .section-head .eyebrow, #classroom > .container > .section-head .eyebrow { color: #9fc0e6; }
+#portfolio .card, #classroom .card { border-color: transparent; }
+
+/* 푸터: 가장 어두운 슬레이트 */
+.site-footer { margin-top: 0; background: var(--slate-900); border-top: 0; }
+.footer-bottom { color: #aab0ba; }
+.footer-links a { color: #fff; }
+
+.to-top { background: var(--accent); box-shadow: 0 6px 16px rgba(20, 24, 32, 0.25); }
+
+/* 태블릿 이하: 메뉴는 흰 펼침 상자이므로 글자를 어둡게, 첫 화면은 한 칸 */
+@media (max-width: 900px) {
+  .site-nav { background: #fff; }
+  .site-nav a { color: var(--ink-soft); }
+  .site-nav a:hover { background: var(--pink-100); color: var(--ink); }
+  .site-nav a.active { background: var(--accent); color: #fff; }
+  .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+  .hero-visual { padding-right: 0; max-width: 520px; }
+  .hero-dots { display: none; }
+}
+@media (max-width: 600px) {
+  :root { --radius: 6px; }
+  .hero { padding: 44px 0 36px; }
+}

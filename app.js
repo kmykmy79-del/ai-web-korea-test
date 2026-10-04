@@ -149,20 +149,29 @@
   var hero = C.hero;
   var heroEl = h("section", { class: "hero" }, [
     h("div", { class: "container" }, [
-      h("span", { class: "hero-badge" }, hero.badge),
-      h("p", { class: "hero-dept" }, orgLine),
-      h("h1", {}, courseName),
-      h("p", { class: "hero-subtitle" }, hero.subtitle),
-      h("p", { class: "hero-desc" }, hero.description),
-      h("div", { class: "hero-actions" }, hero.buttons.map(function (b) {
-        var external = b.href.charAt(0) !== "#";
-        return h("a", {
-          class: "btn " + (b.primary ? "btn-primary" : "btn-ghost"),
-          href: b.href,
-          target: external ? "_blank" : "",
-          rel: external ? "noopener" : "",
-        }, b.label);
-      })),
+      // 왼쪽 글 · 오른쪽 이미지 패널 (두 칸)
+      h("div", { class: "hero-grid" }, [
+        h("div", { class: "hero-copy" }, [
+          h("span", { class: "hero-badge" }, hero.badge),
+          h("p", { class: "hero-dept" }, orgLine),
+          h("h1", {}, courseName),
+          h("p", { class: "hero-subtitle" }, hero.subtitle),
+          h("p", { class: "hero-desc" }, hero.description),
+          h("div", { class: "hero-actions" }, hero.buttons.map(function (b) {
+            var external = b.href.charAt(0) !== "#";
+            return h("a", {
+              class: "btn " + (b.primary ? "btn-primary" : "btn-ghost"),
+              href: b.href,
+              target: external ? "_blank" : "",
+              rel: external ? "noopener" : "",
+            }, b.label);
+          })),
+        ]),
+        h("div", { class: "hero-visual", "aria-hidden": "true" }, [
+          h("div", { class: "hero-frame" }, site.logoImage ? h("img", { src: site.logoImage, alt: "" }) : site.logoEmoji),
+          h("div", { class: "hero-dots" }, [h("i"), h("i"), h("i")]),
+        ]),
+      ]),
       h("div", { class: "card quick" }, hero.quickInfo.map(function (it) {
         return h("div", { class: "quick-item" }, [
           iconBubble(it.icon),
@@ -174,16 +183,6 @@
       })),
     ]),
   ]);
-  // 벚꽃잎
-  for (var i = 0; i < 12; i++) {
-    var size = 10 + Math.random() * 10;
-    heroEl.appendChild(h("span", {
-      class: "petal",
-      "aria-hidden": "true",
-      style: "left:" + (Math.random() * 100) + "%;width:" + size + "px;height:" + size + "px;" +
-        "animation-duration:" + (9 + Math.random() * 9) + "s;animation-delay:-" + (Math.random() * 18) + "s;",
-    }));
-  }
 
   /* ── 통계 ── */
   var statsEl = h("section", { class: "stats", "aria-label": "숫자로 보는 강의" }, [
