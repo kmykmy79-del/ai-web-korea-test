@@ -72,7 +72,7 @@ window.SITE_CONFIG = {
   stats: [
     { value: 15, suffix: "주", label: "집중 과정" },
     { value: 12, suffix: "개", label: "실습 AI·디지털 도구" },
-    { value: 6, suffix: "권", label: "교수자 저술" },
+    { value: 2, suffix: "회", label: "프로젝트 (중간·기말)" },
     { value: 12, suffix: "개", label: "최종 프로젝트 예시" },
   ],
 
@@ -645,32 +645,18 @@ window.SITE_CONFIG = {
     nameSub: "", // 이름 옆 작은 글씨(한자·영문 이름 등). 비워 두면 표시하지 않습니다.
     role: "고려대학교 AI중심대학사업단",
     roleSub: "", // 소속 아래 작은 글씨(영문 소속 등). 비워 두면 표시하지 않습니다.
-    photo: "images/professor.jpg", // 사진 파일 경로. 비워 두면 이름 첫 글자가 표시됩니다.
+    photo: "", // 사진 파일 경로(예: "images/professor.jpg"). 비워 두면 이름 첫 글자가 표시됩니다.
     // 소개 글(여러 문단 가능). 비워 두면 표시하지 않습니다.
     bio: [
-      "AI 기반 교육 콘텐츠 제작, 데이터 분석, 데이터 시각화 및 웹플랫폼 개발을 연구·교육하며, 생성형 AI를 활용한 교육 및 연구 방법론을 개발하고 있습니다.",
-      "주요 관심 분야는 생성형 AI, AI 데이터 분석, 디지털인문학, 웹플랫폼, AI 자동화, 데이터 큐레이션 및 시각화이며, ChatGPT, Claude Code, Codex, Google AI Studio, Make, n8n 등 다양한 AI 도구를 활용한 교육 및 연구를 진행합니다.",
+      "고려대학교 AI중심대학사업단에서 사범대학 「디지털 교육」 강의를 맡고 있습니다. 예비 교사들이 생성형 AI와 디지털 도구를 교육 현장에 맞게 활용할 수 있도록 실습 중심으로 수업합니다.",
     ],
-    career: [
-      "국가교육위원회 AI특별위원회 위원",
-      "교육부 AI인재양성추진단",
-    ],
-    // 저술·자료 목록. 누르면 새 창으로 열립니다.
+    career: [], // 경력. 예) ["○○위원회 위원", "○○추진단"]
+    // 저술·자료 목록. 누르면 새 창으로 열립니다. 예) { title: "책 제목", href: "https://…" }
     worksTitle: "저술",
-    works: [
-      { title: "데이터 큐레이팅", href: "https://www.upaper.net/auraweon/1144732" },
-      { title: "AI 데이터 자동화: N8N(기업업무편)", href: "https://auraweon.upaper.kr/content/1204663" },
-      { title: "AI 데이터 자동화: OPAL", href: "https://auraweon.upaper.kr/content/1204909" },
-      { title: "AI 미디어 큐레이션", href: "https://auraweon.upaper.kr/content/1220294" },
-      { title: "AI 대시보드", href: "https://auraweon.upaper.kr/content/1221085" },
-      { title: "AI 데이터 자동화", href: "https://auraweon.upaper.kr/content/1224709" },
-    ],
+    works: [],
     contacts: [
-      { icon: "📱", label: "mobile", value: "010-9131-6127", href: "tel:010-9131-6127" },
-      { icon: "✉️", label: "email", value: "park9626@hanmail.net", href: "mailto:park9626@hanmail.net" },
-      { icon: "🏢", label: "address", value: "02450 서울특별시 동대문구 이문로 107 교수회관 529호", href: "" },
-      { icon: "🌐", label: "APP", value: "www.kletter.kr", href: "https://www.kletter.kr" },
-      { icon: "🌐", label: "APP", value: "www.kteacher.kr", href: "https://www.kteacher.kr" },
+      { icon: "📱", label: "mobile", value: "010-4600-0522", href: "tel:010-4600-0522" },
+      { icon: "✉️", label: "email", value: "kmin88@korea.ac.kr", href: "mailto:kmin88@korea.ac.kr" },
     ],
   },
 
@@ -684,9 +670,6 @@ window.SITE_CONFIG = {
   /* ── 맨 아래 한 줄 ─────────────────────────────────────── */
   footer: {
     copyright: "Copyright 2026 ⓒ 디지털 교육, All Rights Reserved. | 김민영(고려대학교 AI중심대학사업단)",
-    links: [
-      { icon: "✉️", label: "AI 뉴스레터 빌더", text: "www.kletter.kr", href: "https://www.kletter.kr" },
-      { icon: "🎓", label: "AI 강의콘텐츠 빌더", text: "www.kteacher.kr", href: "https://www.kteacher.kr" },
-    ],
+    links: [], // 예) { icon: "🌐", label: "홈페이지", text: "www.…", href: "https://…" }
   },
 };
