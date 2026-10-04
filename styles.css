@@ -1062,3 +1062,22 @@ a { color: var(--accent); }
 .yt-add-thumb[hidden] { display: none; }
 .yt-add .field-hint { margin: 0; }
 @media (max-width: 640px) { .yt-add-fields { grid-template-columns: 1fr; } }
+/* ── v1.8 로그인 잠금 · 과제 제출 창 ── */
+.week-lock { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px; border: 1px dashed var(--line); border-radius: 14px; background: rgba(0, 0, 0, 0.02); }
+.week-lock > div { flex: 1; min-width: 200px; }
+.week-lock b { display: block; margin-bottom: 2px; }
+.week-lock p { margin: 0; font-size: 14px; opacity: 0.75; }
+.week-lock-icon { font-size: 26px; }
+.submit-modal { max-width: 520px; text-align: left; }
+.submit-modal h2 { text-align: center; }
+.submit-modal .modal-emoji { margin: 0 auto; }
+.submit-body { display: grid; gap: 16px; width: 100%; }
+.submit-info { display: grid; gap: 8px; }
+.submit-info h4 { margin: 0; }
+.submit-table { width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.submit-table th, .submit-table td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.submit-table tr:last-child th, .submit-table tr:last-child td { border-bottom: 0; }
+.submit-table th { width: 92px; background: rgba(0, 0, 0, 0.035); font-weight: 700; white-space: nowrap; }
+.submit-now { font-weight: 700; }
+.submit-now.late { color: #c92c64; }
+.sub-drive { font-weight: 500; }

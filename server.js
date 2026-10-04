@@ -6,6 +6,7 @@
  *   DATABASE_URL  Railway Postgres 연결 주소 (Railway가 자동으로 넣어 줌)
  *   PORT          서버 포트 (없으면 8080)
  *   PGSSL=1       외부(공개) 주소로 DB에 접속할 때만 지정
+ *   DRIVE_SCRIPT_URL, DRIVE_SECRET  과제 파일을 구글 드라이브에 저장할 때 (drive-upload.gs 참고)
  * DATABASE_URL이 없으면 메모리에만 저장합니다(재시작하면 사라짐 — 시험용).
  */
 "use strict";
@@ -177,6 +178,58 @@ function start() {
   const FILE_CFG = fileConfig();
   const app = express();
   app.disable("x-powered-by");
+
+  /* ── 과제 파일 → 구글 드라이브 (학생별 폴더) ──
+   * 구글 Apps Script 웹 앱(drive-upload.gs)으로 파일을 넘기면, 교수자 드라이브의
+   * "디지털 교육 과제 제출 / 이름_학번" 폴더에 저장됩니다.
+   *   DRIVE_SCRIPT_URL  Apps Script 웹 앱 주소 (https://script.google.com/macros/s/…/exec)
+   *   DRIVE_SECRET      Apps Script의 SECRET과 같은 값 */
+  const DRIVE_URL = process.env.DRIVE_SCRIPT_URL || "", DRIVE_SECRET = process.env.DRIVE_SECRET || "";
+  const MAX_FILE_MB = 20;
+  // 명단(없으면 수강 신청서)에 있는 학번·이름인지 확인합니다. 둘 다 비어 있으면 통과.
+  async function knownStudent(id, name) {
+    const all = await db.getAll(["roster", "applications"]);
+    const roster = Array.isArray(all.roster) ? all.roster : [];
+    if (roster.length) return roster.some((r) => r && r.id === id && String(r.name).trim() === name);
+    const apps = Array.isArray(all.applications) ? all.applications : [];
+    if (apps.length) return apps.some((a) => a && String(a.studentId).trim() === id && String(a.name).trim() === name && !a.excluded);
+    return true;
+  }
+  app.post("/api/submit-file", express.json({ limit: Math.ceil(MAX_FILE_MB * 1.4) + 1 + "mb" }), async (req, res) => {
+    if (!DRIVE_URL || !DRIVE_SECRET) return fail(res, 503, "구글 드라이브 저장이 아직 연결되지 않았습니다.");
+    try {
+      const b = req.body || {};
+      const id = String(b.id || "").trim(), name = String(b.name || "").trim().slice(0, 40);
+      const week = Number(b.week);
+      const fileName = String(b.fileName || "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").slice(0, 120);
+      const data = String(b.data || "");
+      if (!/^\d{10}$/.test(id) || !name || !Number.isInteger(week) || week < 1 || week > 99 || !fileName || !data) return fail(res, 400, "제출 정보가 올바르지 않습니다.");
+      if (data.length * 0.75 > MAX_FILE_MB * 1024 * 1024) return fail(res, 413, "파일이 너무 큽니다. (최대 " + MAX_FILE_MB + "MB)");
+      if (!(await knownStudent(id, name))) return fail(res, 403, "수강생 명단에 없는 학번·이름입니다.");
+      const r = await fetch(DRIVE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          secret: DRIVE_SECRET, id, name, week,
+          title: String(b.title || "").slice(0, 100),
+          fileName, mime: String(b.mime || "application/octet-stream").slice(0, 100), data,
+        }),
+        redirect: "follow",
+      });
+      const text = await r.text();
+      let j = null;
+      try { j = JSON.parse(text); } catch (e) { /* 아래에서 처리 */ }
+      if (!j || !j.ok) {
+        console.error("드라이브 저장 실패:", r.status, text.slice(0, 300));
+        return fail(res, 502, "구글 드라이브에 저장하지 못했습니다." + (j && j.error ? " (" + j.error + ")" : ""));
+      }
+      res.json({ ok: true, url: j.url, folderUrl: j.folderUrl, fileName: j.fileName });
+    } catch (e) {
+      console.error(e);
+      fail(res, 500, "파일을 저장하지 못했습니다.");
+    }
+  });
+
   app.use(express.json({ limit: "300kb" }));
 
   const tokenOf = (req) => String(req.get("X-Admin-Token") || "").slice(0, 100);
@@ -186,7 +239,25 @@ function start() {
   }
   const fail = (res, code, msg) => res.status(code).json({ ok: false, error: msg });
 
-  app.get("/api/health", (req, res) => res.json({ ok: true, db: db.kind }));
+  app.get("/api/health", (req, res) => res.json({ ok: true, db: db.kind, drive: !!(DRIVE_URL && DRIVE_SECRET) }));
+
+  // 과제 제출 창에 보여 줄 내 인적사항(학과·학년) — 학번과 이름이 함께 맞을 때만
+  app.get("/api/me", async (req, res) => {
+    try {
+      const id = String(req.query.id || "").trim(), name = String(req.query.name || "").trim();
+      res.set("Cache-Control", "no-store");
+      if (!/^\d{10}$/.test(id) || !name) return res.json({ ok: true, me: null });
+      const all = await db.getAll(["roster", "applications"]);
+      const apps = (Array.isArray(all.applications) ? all.applications : [])
+        .filter((a) => a && String(a.studentId).trim() === id && String(a.name).trim() === name);
+      const r = (Array.isArray(all.roster) ? all.roster : []).find((x) => x && x.id === id && String(x.name).trim() === name) || {};
+      const a = apps[apps.length - 1] || {};
+      res.json({ ok: true, me: { department: a.department || r.department || "", grade: a.grade || r.grade || "" } });
+    } catch (e) {
+      console.error(e);
+      fail(res, 500, "정보를 불러오지 못했습니다.");
+    }
+  });
 
   // 사이트가 처음 열릴 때 함께 쓰는 데이터를 한 번에 받아 갑니다.
   app.get("/api/state", async (req, res) => {
@@ -256,7 +327,7 @@ function start() {
 
   // 서버 코드·설정 파일은 보여 주지 않습니다.
   app.use((req, res, next) => {
-    if (/^\/(server\.js|package(-lock)?\.json|node_modules|\.git|\.claude|\.railway)/i.test(req.path)) return res.status(404).end();
+    if (/^\/(server\.js|drive-upload\.gs|package(-lock)?\.json|node_modules|\.git|\.claude|\.railway)/i.test(req.path)) return res.status(404).end();
     next();
   });
   // 페이지(html)는 매번 새로 받게 하고, js·css·이미지는 1시간 보관 (파일 주소 끝 ?v= 숫자로 새로 받게 함)

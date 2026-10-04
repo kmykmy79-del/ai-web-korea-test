@@ -26,6 +26,7 @@
     if (API.on && !API.admin) return false;
     return !!(s && s.hash && s.hash === C.admin.passwordHash && Date.now() < s.until);
   }
+  KU.adminView = isAdmin; // 관리자는 로그인하지 않아도 주차 세부 정보를 봅니다(app.js)
   function setAdmin(on) {
     store.set("adminLogin", on ? { hash: C.admin.passwordHash, until: Date.now() + LOGIN_DAYS * 86400000 } : null);
     if (!on && API.on) API.logout();
@@ -677,7 +678,10 @@
       h("table", { class: "ad-table" }, [
         h("thead", {}, [h("tr", {}, headers.map(function (x) { return h("th", {}, x); }))]),
         h("tbody", {}, rows.map(function (r) {
-          return h("tr", {}, r.map(function (x) { return h("td", {}, x === null || x === undefined ? "" : String(x)); }));
+          return h("tr", {}, r.map(function (x) {
+            var s = x === null || x === undefined ? "" : String(x);
+            return h("td", {}, /^https:\/\//.test(s) ? [h("a", { href: s, target: "_blank", rel: "noopener" }, "열기")] : s);
+          }));
         })),
       ]),
     ]);
@@ -1269,11 +1273,11 @@
     });
 
     var sub = store.get("submissions", {});
-    var subHead = ["학번", "이름", "주차", "과제", "파일", "크기(MB)", "제출 시각", "지각", "메모"];
+    var subHead = ["학번", "이름", "주차", "과제", "파일", "크기(MB)", "제출 시각", "지각", "메모", "구글 드라이브"];
     var subRows = [];
     Object.keys(sub).forEach(function (id) {
       sub[id].forEach(function (s) {
-        subRows.push([id, nameOf(id), s.week, s.title, s.file, (s.size / 1024 / 1024).toFixed(2), stamp(s.at), s.late ? "지각" : "", s.memo || ""]);
+        subRows.push([id, nameOf(id), s.week, s.title, s.file, (s.size / 1024 / 1024).toFixed(2), stamp(s.at), s.late ? "지각" : "", s.memo || "", s.driveUrl || ""]);
       });
     });
 
