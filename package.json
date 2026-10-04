@@ -1,6 +1,6 @@
 {
   "name": "ai-web-korea-test",
-  "version": "2.0.0",
+  "version": "1.0.10",
   "private": true,
   "description": "디지털 교육 강의 사이트 — 사이트 데이터를 Railway Postgres에 저장하는 서버",
   "main": "server.js",
