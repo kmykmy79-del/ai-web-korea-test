@@ -1203,7 +1203,7 @@
       var btn = subForm.querySelector("button[type=submit]") || subForm.querySelector("button:last-of-type");
       var label = btn ? btn.textContent : "";
       if (btn) { btn.disabled = true; btn.textContent = "올리는 중…"; }
-      submitAssignment(me, w, values.file, values.memo).then(function () { renderRoom(); }, function (e) {
+      submitAssignment(me, w, values.file, values.memo).then(function () { renderRoom(); celebrate(true); }, function (e) {
         if (btn) { btn.disabled = false; btn.textContent = label; }
         fapi.error(e.message);
       });
@@ -1326,8 +1326,9 @@
           clearInterval(timer);
           body.textContent = "";
           body.appendChild(h("div", { class: "done", role: "status" }, [
-            h("div", { class: "done-icon", "aria-hidden": "true" }, "✓"),
-            h("h4", {}, rec.late ? "지각 제출되었습니다" : "제출되었습니다"),
+            h("div", { class: "done-icon", "aria-hidden": "true" }, "🎉"),
+            h("h3", { class: "done-cheer" }, "수고했습니다!"),
+            h("h4", {}, rec.late ? "지각 제출되었습니다" : "과제가 제출되었습니다"),
             h("p", { class: "done-meta" }, me.name + " (" + me.id + ") · " + fmtDateTime(new Date(rec.at))),
             h("p", { class: "done-meta" }, "📎 " + (rec.driveFile || rec.file)),
             rec.driveUrl ? h("a", { class: "btn btn-ghost btn-sm", href: rec.driveUrl, target: "_blank", rel: "noopener" }, "구글 드라이브에서 보기") : null,
@@ -1336,6 +1337,7 @@
           ok.addEventListener("click", close);
           body.appendChild(ok);
           ok.focus();
+          celebrate(false);
           renderRoom();
         }, function (e) {
           if (btn) { btn.disabled = false; btn.textContent = "제출하기"; }
@@ -1594,6 +1596,17 @@
     }
     burst();
     requestAnimationFrame(frame);
+  }
+
+  // 과제 제출 완료: 폭죽 + (창 밖에서 제출했으면) '수고했습니다!' 알림
+  function celebrate(withToast) {
+    if (!reduceMotion) fireworks();
+    if (!withToast) return;
+    var toast = h("div", { class: "toast toast-cheer", role: "status" }, "🎉 수고했습니다! 과제가 제출되었습니다.");
+    document.body.appendChild(toast);
+    setTimeout(function () { toast.classList.add("show"); }, 50);
+    setTimeout(function () { toast.classList.remove("show"); }, 3800);
+    setTimeout(function () { toast.remove(); }, 4400);
   }
 
   // 주소 끝에 ?welcome 을 붙이면 첫 방문 효과와 팝업을 다시 볼 수 있습니다(확인용).
