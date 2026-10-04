@@ -133,7 +133,11 @@
   if (site.logoImage) document.head.appendChild(h("link", { rel: "icon", href: site.logoImage }));
   brand.appendChild(h("span", { class: "brand-text" }, [
     h("span", { class: "brand-sub" }, site.headerSub || orgLine),
-    h("span", { class: "brand-title" }, courseName),
+    // 제목 옆 버전 배지 (config.js의 site.version)
+    h("span", { class: "brand-title-row" }, [
+      h("span", { class: "brand-title" }, courseName),
+      site.version ? h("span", { class: "brand-ver", title: "사이트 버전 " + site.version }, site.version) : null,
+    ]),
   ]));
 
   var nav = document.getElementById("siteNav");
