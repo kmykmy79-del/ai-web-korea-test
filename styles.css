@@ -986,8 +986,8 @@ a { color: var(--accent); }
 #portfolio, #classroom { background: var(--slate-800); }
 #portfolio > .container > .section-head h2, #classroom > .container > .section-head h2,
 #portfolio > .container > .sub-title, #classroom > .container > .sub-title { color: #fff; }
-#portfolio > .container > .section-head .lead, #classroom > .container > .section-head .lead { color: #c4c9d1; }
-#portfolio > .container > .section-head .eyebrow, #classroom > .container > .section-head .eyebrow { color: #9fc0e6; }
+#portfolio > .container > .section-head .lead, #classroom > .container > .section-head .lead { color: #ffffff; }
+#portfolio > .container > .section-head .eyebrow, #classroom > .container > .section-head .eyebrow { color: #ffffff; }
 #portfolio .card, #classroom .card { border-color: transparent; }
 
 /* 푸터: 가장 어두운 슬레이트 */
@@ -1087,3 +1087,15 @@ a { color: var(--accent); }
 .toast-cheer { font-size: 16px; font-weight: 700; }
 @keyframes cheer-pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .done-cheer, .submit-modal .done .done-icon { animation: none; } }
+/* ── v2.0 회색 배경 위 글씨는 흰색으로 (가독성) ── */
+.site-header .brand-sub,
+.site-header .lock-btn,
+.hero .hero-dept,
+.hero .hero-desc,
+.hero .quick-label,
+#portfolio .eyebrow, #portfolio .lead,
+#classroom .eyebrow, #classroom .lead,
+.site-footer .section-head .eyebrow,
+.site-footer .section-head h2,
+.site-footer .footer-bottom { color: #ffffff; }
+.hero .quick-label, .site-footer .eyebrow, #portfolio .eyebrow, #classroom .eyebrow { opacity: 0.95; }
