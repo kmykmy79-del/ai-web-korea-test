@@ -481,16 +481,17 @@
     ]);
   }
   // 참고 영상: 유튜브는 미리보기 이미지를 누르면 그 자리에서 재생(embed), 그 밖의 주소는 링크
+  //   영상이 없어도 자리는 항상 보입니다. data-vi는 w.videos 안의 순서(관리자 삭제·순서 바꾸기에 씀)
   function videosBox(w) {
-    var list = (w.videos || []).filter(function (v) { return isHttps(v.url); });
-    if (!list.length) return null;
-    var yt = list.filter(function (v) { return ytId(v.url); });
-    var others = list.filter(function (v) { return !ytId(v.url); });
-    return h("div", {}, [
-      h("h4", {}, "참고 영상"),
-      yt.length ? h("div", { class: "yt-grid" }, yt.map(function (v) {
-        var id = ytId(v.url);
-        return h("figure", { class: "yt" }, [
+    var list = (w.videos || []).map(function (v, i) { return { v: v, i: i }; }).filter(function (x) { return isHttps(x.v.url); });
+    var yt = list.filter(function (x) { return ytId(x.v.url); });
+    var others = list.filter(function (x) { return !ytId(x.v.url); });
+    return h("div", { class: "week-videos" }, [
+      h("h4", {}, "🎬 참고 영상"),
+      list.length ? null : h("p", { class: "yt-empty" }, "등록된 참고 영상이 없습니다."),
+      yt.length ? h("div", { class: "yt-grid" }, yt.map(function (x) {
+        var v = x.v, id = ytId(v.url);
+        return h("figure", { class: "yt", "data-vi": x.i }, [
           h("button", { class: "yt-frame", type: "button", "data-yt": id, "aria-label": (v.label || "영상") + " 재생" }, [
             h("img", { src: "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg", alt: "", loading: "lazy" }),
             h("span", { class: "yt-play", "aria-hidden": "true" }, "▶"),
@@ -498,8 +499,9 @@
           v.label ? h("figcaption", {}, v.label) : null,
         ]);
       })) : null,
-      others.length ? h("div", { class: "meta-row" }, others.map(function (v) {
-        return h("a", { class: "contact video-link", href: v.url, target: "_blank", rel: "noopener" }, [
+      others.length ? h("div", { class: "meta-row" }, others.map(function (x) {
+        var v = x.v;
+        return h("a", { class: "contact video-link", href: v.url, target: "_blank", rel: "noopener", "data-vi": x.i }, [
           h("span", { "aria-hidden": "true" }, "▶"), v.label || v.url,
         ]);
       })) : null,

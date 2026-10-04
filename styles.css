@@ -1049,3 +1049,16 @@ a { color: var(--accent); }
 .ad-addbox[hidden] { display: none; }
 .ad-mini.ok { color: #2f9e44; border-color: #b2dfbb; }
 .ad-motive { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+/* ── v1.7 참고 영상 칸 ── */
+.week-videos { display: grid; gap: 10px; }
+.week-videos h4 { margin: 0; }
+.yt-empty { margin: 0; padding: 14px; border: 1px dashed var(--line); border-radius: 12px; font-size: 14px; opacity: 0.7; text-align: center; }
+.yt { position: relative; }
+.yt-admin { display: flex; gap: 4px; justify-content: flex-end; margin-top: 6px; }
+.yt-add { display: grid; gap: 8px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; background: rgba(0, 0, 0, 0.015); }
+.yt-add-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 8px; }
+.yt-add-fields input { min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+.yt-add-thumb { width: 200px; max-width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; }
+.yt-add-thumb[hidden] { display: none; }
+.yt-add .field-hint { margin: 0; }
+@media (max-width: 640px) { .yt-add-fields { grid-template-columns: 1fr; } }

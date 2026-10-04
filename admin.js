@@ -580,7 +580,52 @@
       button("✏️ 이 주차 수정", "ad-mini", function () { weekDialog(idx); }),
       confirmButton("🗑 " + w.week + "주차 삭제", "ad-mini danger", function () { deleteWeek(idx); }),
     ]), detail.firstChild);
+    videoAdmin(card, w, idx);
   };
+
+  // 참고 영상 칸: 그 자리에서 유튜브 영상 추가·순서 바꾸기·삭제
+  function videoAdmin(card, w, idx) {
+    var box = card.querySelector(".week-videos");
+    if (!box) return;
+    function saveVideos(fn) {
+      var dw = draft.curriculum.weeks[idx];
+      dw.videos = (dw.videos || []).slice();
+      fn(dw.videos);
+      saveDraft(true, "week-" + w.week);
+    }
+    // 영상마다 ◀ ▶ 🗑
+    var total = (w.videos || []).length;
+    Array.prototype.forEach.call(box.querySelectorAll("[data-vi]"), function (el) {
+      var i = Number(el.getAttribute("data-vi"));
+      var bar = h("div", { class: "yt-admin" }, [
+        i > 0 ? button("◀", "ad-mini", function () { saveVideos(function (v) { v.splice(i - 1, 0, v.splice(i, 1)[0]); }); }) : null,
+        i < total - 1 ? button("▶", "ad-mini", function () { saveVideos(function (v) { v.splice(i + 1, 0, v.splice(i, 1)[0]); }); }) : null,
+        deleteButton(function () { saveVideos(function (v) { v.splice(i, 1); }); }),
+      ]);
+      if (el.tagName === "FIGURE") el.appendChild(bar); else el.parentNode.insertBefore(bar, el.nextSibling);
+    });
+    // 추가 칸: 주소를 넣으면 미리보기 그림이 바로 보입니다
+    var url = h("input", { type: "url", placeholder: "https://www.youtube.com/watch?v=…", "aria-label": "유튜브 주소" });
+    var label = h("input", { type: "text", placeholder: "영상 제목 (선택)", "aria-label": "영상 제목" });
+    var thumb = h("img", { class: "yt-add-thumb", alt: "", hidden: true });
+    var msg = h("p", { class: "field-hint", role: "status" }, "watch?v= · youtu.be · shorts 주소 모두 됩니다.");
+    url.addEventListener("input", function () {
+      var id = KU.ytId(url.value.trim());
+      thumb.hidden = !id;
+      if (id) thumb.src = "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
+    });
+    var add = button("＋ 영상 추가", "btn btn-primary btn-sm", function () {
+      var u = url.value.trim();
+      if (!KU.ytId(u)) { msg.textContent = "유튜브 영상 주소가 아닙니다. 주소를 다시 확인해 주세요."; url.focus(); return; }
+      saveVideos(function (v) { v.push({ label: label.value.trim(), url: u }); });
+    });
+    url.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); add.click(); } });
+    box.appendChild(h("div", { class: "yt-add" }, [
+      h("div", { class: "yt-add-fields" }, [url, label, add]),
+      thumb,
+      msg,
+    ]));
+  }
   KU.onWeekList = function (list) {
     if (!isAdmin()) return;
     list.appendChild(h("div", { class: "week-add" }, [
