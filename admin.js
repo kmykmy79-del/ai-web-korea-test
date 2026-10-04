@@ -50,12 +50,13 @@
     if (KU.guide) KU.guide.refresh(); // 수강 안내 카드의 추가·수정·삭제 버튼
     if (KU.polls) KU.polls.refresh(); // 설문 추가 칸과 히스토리 표
     if (KU.notices) KU.notices.refresh(); // 공지 카드의 추가·수정·삭제 버튼
+    if (KU.weekList) KU.weekList.refresh(); // 커리큘럼 주차의 수정·삭제·추가 버튼
   }
 
   /* ── 포트폴리오 카드에서 바로 추가·수정·삭제 ──
    * 관리자 로그인 중에는 카드마다 수정·삭제 버튼이, 목록 끝에는 '추가' 칸이 나타납니다.
    * 바꾸는 즉시 이 브라우저에 저장되고 화면에 반영됩니다. */
-  var FOLIO_CATS = ["웹페이지", "웹앱", "대시보드", "기타"];
+  var FOLIO_CATS = ["수업 설계", "수업 자료", "영상", "기타"];
   function applyFolio() {
     saveDraft(false);
     KU.portfolio.refresh(clone(draft.portfolio.items));
@@ -70,7 +71,7 @@
       { name: "driveUrl", label: "구글 드라이브 주소", type: "text", required: true, wide: true, placeholder: "https://drive.google.com/file/d/…/view", hint: "드라이브에서 파일 → 공유 → 링크 복사 (공유 범위: 링크가 있는 모든 사용자)" },
       { name: "title", label: "과제물 제목", type: "text", required: true, wide: true },
       { name: "student", label: "학생 표시 이름", type: "text", required: true, wide: true, placeholder: "예: 김○○ 또는 수강생 A" },
-      { name: "term", label: "학기·과제 구분", type: "text", required: false, wide: true, placeholder: "예: 2026 상반기 · 기말 프로젝트" },
+      { name: "term", label: "학기·과제 구분", type: "text", required: false, wide: true, placeholder: "예: 2026 2학기 · 기말 프로젝트" },
       { name: "category", label: "분류", type: "select", required: true, wide: true, options: cats },
       { name: "description", label: "소개", type: "textarea", required: false },
     ], cur ? "수정 내용 저장" : "포트폴리오에 추가", function (v, api) {
@@ -495,6 +496,99 @@
     reloadAfterSave();
   }
 
+  /* ── 커리큘럼 주차: 본문에서 바로 수정·추가·삭제 ──
+   * 주차를 펼치면 '이 주차 수정'·'삭제', 목록 끝에 '주차 추가'가 나타납니다.
+   * 강의 자료는 구글 드라이브 링크, 참고 영상은 유튜브 주소로 넣으면 본문에서 바로 재생됩니다. */
+  var WEEK_TAGS = ["", "실습", "이론", "토론", "프로젝트", "발표", "시험"];
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function ymd(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  // "제목 | 주소" 줄 목록 ↔ [{label, url}]
+  function linkLines(list) { return (list || []).map(function (x) { return (x.label || "") + " | " + x.url; }).join("\n"); }
+  function parseLinks(text, check, what) {
+    var items = [], bad = "";
+    String(text || "").split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean).forEach(function (l) {
+      var i = l.lastIndexOf("|");
+      var label = i >= 0 ? l.slice(0, i).trim() : "";
+      var url = (i >= 0 ? l.slice(i + 1) : l).trim();
+      if (!check(url)) { if (!bad) bad = "'" + l + "' — " + what + " 주소가 아닙니다."; return; }
+      items.push({ label: label, url: url });
+    });
+    return { items: items, bad: bad };
+  }
+  function weekDialog(idx) {
+    var list = draft.curriculum.weeks;
+    var cur = idx >= 0 ? list[idx] : null;
+    var tags = cur && cur.tag && WEEK_TAGS.indexOf(cur.tag) < 0 ? WEEK_TAGS.concat([cur.tag]) : WEEK_TAGS;
+    var sched = draft.curriculum.schedule || {};
+    var a = (cur && cur.assignment) || {};
+    var close;
+    var form = makeForm([
+      { name: "title", label: "주차 제목", type: "text", required: true, wide: true },
+      { name: "tag", label: "태그", type: "select", required: false, options: tags.map(function (t) { return { value: t, label: t || "(없음)" }; }) },
+      { name: "date", label: "날짜 (비우면 자동)", type: "text", required: false, placeholder: "예: 2026-10-06", pattern: "^\\d{4}-\\d{2}-\\d{2}$", patternMsg: "2026-10-06처럼 연-월-일로 적어 주세요.", hint: "휴강·보강으로 그 주만 다를 때 적습니다." },
+      { name: "time", label: "시간 (비우면 기본값)", type: "text", required: false, placeholder: sched.time || "" },
+      { name: "location", label: "장소 (비우면 기본값)", type: "text", required: false, placeholder: sched.location || "" },
+      { name: "topics", label: "학습 내용 (한 줄에 하나)", type: "textarea", required: true },
+      { name: "materials", label: "강의 자료 — 구글 드라이브 (한 줄에 하나: 제목 | 주소)", type: "textarea", required: false, placeholder: "1주차 강의 슬라이드 | https://docs.google.com/presentation/d/…", hint: "드라이브에서 파일 → 공유 → '링크가 있는 모든 사용자' → 링크 복사" },
+      { name: "videos", label: "참고 영상 — 유튜브 (한 줄에 하나: 제목 | 주소)", type: "textarea", required: false, placeholder: "디지털 교육의 이해 | https://www.youtube.com/watch?v=…", hint: "본문에서 바로 재생됩니다. watch?v= · youtu.be · shorts 주소 모두 됩니다." },
+      { name: "aTitle", label: "과제 제목 (과제가 없으면 비우기)", type: "text", required: false, wide: true },
+      { name: "aText", label: "과제 설명", type: "textarea", required: false },
+      { name: "aDue", label: "과제 마감", type: "text", required: false, placeholder: "예: 2026-10-20T23:59", pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$", patternMsg: "2026-10-20T23:59처럼 적어 주세요." },
+    ], cur ? "주차 저장" : "주차 추가", function (v, api) {
+      var topics = String(v.topics).split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+      if (!topics.length) return api.fail("topics", "학습 내용을 한 줄 이상 적어 주세요.");
+      var mats = parseLinks(v.materials, function (u) { return !!KU.driveId(u); }, "구글 드라이브");
+      if (mats.bad) return api.fail("materials", mats.bad);
+      var vids = parseLinks(v.videos, function (u) { return !!KU.ytId(u); }, "유튜브");
+      if (vids.bad) return api.fail("videos", vids.bad);
+      if (v.aTitle && !v.aDue) return api.fail("aDue", "과제 마감을 적어 주세요.");
+      var w = cur ? JSON.parse(JSON.stringify(cur)) : {
+        week: list.reduce(function (m, x) { return Math.max(m, Number(x.week) || 0); }, 0) + 1,
+      };
+      w.title = v.title; w.tag = v.tag || ""; w.topics = topics; w.materials = mats.items; w.videos = vids.items;
+      ["date", "time", "location"].forEach(function (k) { if (v[k]) w[k] = v[k]; else delete w[k]; });
+      if (v.aTitle) w.assignment = { title: v.aTitle, text: v.aText || "", due: v.aDue, submitUrl: a.submitUrl || "" };
+      else delete w.assignment;
+      if (!w.assignment || !w.assignment.submitUrl) { if (w.assignment) delete w.assignment.submitUrl; }
+      if (cur) list[idx] = w; else list.push(w);
+      close();
+      saveDraft(true, "week-" + w.week); // 날짜·달력·과제 목록까지 함께 바뀌므로 새로고침
+    });
+    if (cur) {
+      form.setValue("title", cur.title || ""); form.setValue("tag", cur.tag || "");
+      form.setValue("date", cur.date || ""); form.setValue("time", cur.time || ""); form.setValue("location", cur.location || "");
+      form.setValue("topics", (cur.topics || []).join("\n"));
+      form.setValue("materials", linkLines(cur.materials)); form.setValue("videos", linkLines(cur.videos));
+      form.setValue("aTitle", a.title || ""); form.setValue("aText", a.text || ""); form.setValue("aDue", a.due || "");
+    }
+    close = dialog(cur ? cur.week + "주차 수정" : "주차 추가", cur ? "" : "목록 맨 끝에 새 주차가 추가됩니다.", form, "🗓️");
+  }
+  // 주차 삭제: 다른 주차의 번호·날짜가 바뀌지 않도록, 뒤쪽 주차의 날짜를 지금 날짜로 고정해 둡니다.
+  function deleteWeek(idx) {
+    var list = draft.curriculum.weeks;
+    for (var i = idx + 1; i < list.length; i++) {
+      if (!list[i].date && KU.weeks[i] && KU.weeks[i]._date) list[i].date = ymd(KU.weeks[i]._date);
+    }
+    list.splice(idx, 1);
+    saveDraft(true, "weeks-title");
+  }
+  KU.onWeekCard = function (card, w, idx) {
+    if (!isAdmin()) return;
+    var detail = card.querySelector(".week-detail");
+    if (!detail) return;
+    detail.insertBefore(h("div", { class: "week-admin" }, [
+      button("✏️ 이 주차 수정", "ad-mini", function () { weekDialog(idx); }),
+      confirmButton("🗑 " + w.week + "주차 삭제", "ad-mini danger", function () { deleteWeek(idx); }),
+    ]), detail.firstChild);
+  };
+  KU.onWeekList = function (list) {
+    if (!isAdmin()) return;
+    list.appendChild(h("div", { class: "week-add" }, [
+      button("＋ 주차 추가", "btn btn-ghost btn-sm", function () { weekDialog(-1); }),
+      h("span", { class: "field-hint" }, where("추가·수정·삭제는 이 브라우저에 저장됩니다.", "추가·수정·삭제는 서버(Postgres)에 저장되어 모든 방문자에게 바로 반영됩니다.")),
+    ]));
+  };
+
   /* ── 작은 도구들 ── */
   function button(label, cls, fn) {
     var b = h("button", { class: cls, type: "button" }, label);
@@ -904,86 +998,199 @@
   };
 
   /* ── 탭: 수강생 명단 ── */
+  // 다른 기기에서 들어온 신청·출석·제출을 서버에서 새로 받아 옵니다. (보내는 중인 변경이 있으면 건너뜀)
+  function refreshShared() {
+    if (API.on && !API.pending) API.refresh(["applications", "roster", "attendance", "submissions"]);
+  }
+  // 승인 대기 중인 수강 신청: 반려(excluded)되지 않았고 아직 명단에 없는 신청서 (같은 학번은 마지막 신청서만)
+  function pendingApps(roster) {
+    var byId = {};
+    store.get("applications", []).forEach(function (a) {
+      var id = String(a.studentId || "").trim();
+      if (/^\d{10}$/.test(id) && String(a.name || "").trim()) byId[id] = a;
+    });
+    return Object.keys(byId).map(function (id) { return byId[id]; }).filter(function (a) {
+      var id = String(a.studentId).trim();
+      return !a.excluded && !roster.some(function (r) { return r.id === id; });
+    }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
+  }
+  function approve(roster, a) {
+    var id = String(a.studentId).trim();
+    if (!roster.some(function (r) { return r.id === id; })) roster.push({ id: id, name: String(a.name).trim(), from: "apply" });
+    setExcluded(id, false);
+  }
+
+  // 수강 신청 승인 카드
+  function approvalCard(roster, sync) {
+    var list = pendingApps(roster);
+    var head = ["신청일", "학번", "이름", "학과", "학년", "이메일", "연락처", "수강 동기"];
+    return h("div", { class: "card ad-card ad-approve" }, [
+      h("div", { class: "ad-row between" }, [
+        h("h4", {}, "📝 수강 신청 승인 대기 (" + list.length + "건)"),
+        list.length > 1 ? confirmButton("모두 승인", "btn btn-primary btn-sm", function () {
+          list.forEach(function (a) { approve(roster, a); });
+          sync();
+        }) : null,
+      ]),
+      list.length ? h("div", { class: "ad-table-wrap" }, [
+        h("table", { class: "ad-table ad-status-table" }, [
+          h("thead", {}, [h("tr", {}, head.map(function (x) { return h("th", {}, x); }).concat([h("th", {}, "처리")]))]),
+          h("tbody", {}, list.map(function (a) {
+            return h("tr", {}, [
+              a.at ? KU.fmtDateTime(new Date(a.at)) : "", a.studentId, a.name, a.department || "", a.grade || "",
+              a.email || "", a.phone || "",
+            ].map(function (x) { return h("td", {}, String(x)); }).concat([
+              h("td", { class: "ad-motive", title: a.motivation || "" }, a.motivation || ""),
+              h("td", {}, [h("span", { class: "ad-row" }, [
+                button("✅ 승인", "ad-mini ok", function () { approve(roster, a); sync(); }),
+                button("반려", "ad-mini danger", function () { setExcluded(String(a.studentId).trim(), true); showTab("roster"); }),
+              ])]),
+            ]));
+          })),
+        ]),
+      ]) : h("p", { class: "cal-empty" }, "승인을 기다리는 수강 신청이 없습니다."),
+    ]);
+  }
+  function setExcluded(id, on) {
+    var apps = store.get("applications", []), hit = false;
+    apps.forEach(function (a) {
+      if (String(a.studentId || "").trim() !== id || !!a.excluded === on) return;
+      if (on) a.excluded = true; else delete a.excluded;
+      hit = true;
+    });
+    if (hit) store.set("applications", apps);
+  }
+
+  // 수강생 현황 표: 명단 + 신청서 정보 + 출석·과제 제출 수
+  function statusCard(roster, sync) {
+    var apps = store.get("applications", []);
+    var att = store.get("attendance", {}), sub = store.get("submissions", {});
+    var appOf = {};
+    apps.forEach(function (a) { var id = String(a.studentId || "").trim(); if (id) appOf[id] = a; }); // 같은 학번이면 마지막 신청서
+    var now = new Date();
+    var held = KU.weeks.filter(function (w) { return w._date && w._date <= now; }).length;
+    var assignTotal = KU.weeks.filter(function (w) { return w.assignment; }).length;
+    function attCount(id) { return Object.keys(att[id] || {}).filter(function (k) { return att[id][k]; }).length; }
+    function subCount(id) {
+      var seen = {};
+      (sub[id] || []).forEach(function (s) { seen[s.week] = 1; });
+      return Object.keys(seen).length;
+    }
+    function pct(n, total) { return total ? Math.round(n / total * 100) + "%" : "-"; }
+
+    var head = ["번호", "학번", "이름", "학과", "학년", "이메일", "연락처", "신청일", "출석", "출석률", "과제 제출", "등록 경로"];
+    var rows = roster.map(function (r, i) {
+      var a = appOf[r.id] || r, n = attCount(r.id); // 직접 추가한 학생은 명단에 적은 학과·연락처를 씁니다
+      return [i + 1, r.id, r.name, a.department || "", a.grade || "", a.email || "", a.phone || "",
+        a.at ? KU.fmtDateTime(new Date(a.at)) : "", n + " / " + held, pct(n, held),
+        subCount(r.id) + " / " + assignTotal, a.at ? "수강 신청" : "직접 등록"];
+    });
+    var attSum = roster.reduce(function (s, r) { return s + Math.min(attCount(r.id), held || 0); }, 0);
+    var excluded = Object.keys(appOf).filter(function (id) {
+      return appOf[id].excluded && !roster.some(function (r) { return r.id === id; });
+    });
+
+    var search = h("input", { type: "search", class: "ad-search", placeholder: "이름·학번·학과로 찾기", "aria-label": "수강생 찾기" });
+    var tbody = h("tbody", {}, rows.map(function (cells, i) {
+      var r = roster[i];
+      return h("tr", { "data-q": (r.id + " " + r.name + " " + (cells[3] || "")).toLowerCase() },
+        cells.map(function (x) { return h("td", {}, String(x)); }).concat([
+          h("td", {}, [button("삭제", "ad-mini danger", function () {
+            roster.splice(roster.indexOf(r), 1);
+            setExcluded(r.id, true);
+            sync();
+          })]),
+        ]));
+    }));
+    search.addEventListener("input", function () {
+      var q = search.value.trim().toLowerCase();
+      Array.prototype.forEach.call(tbody.children, function (tr) { tr.hidden = !!q && tr.getAttribute("data-q").indexOf(q) < 0; });
+    });
+
+    // ＋ 학생 추가: 표 위에 펼쳐지는 입력 칸
+    var gradeField = C.participate.apply.fields.filter(function (f) { return f.name === "grade"; })[0];
+    var addBox = h("div", { class: "ad-addbox", hidden: true }, [
+      h("h4", {}, "＋ 학생 추가"),
+      makeForm([
+        { name: "id", label: "학번", type: "text", required: true, placeholder: "숫자 10자리", pattern: "^\\d{10}$", patternMsg: "학번은 숫자 10자리로 입력해 주세요." },
+        { name: "name", label: "이름", type: "text", required: true, placeholder: "홍길동" },
+        { name: "department", label: "학과", type: "text", required: false, placeholder: "○○교육과" },
+        gradeField ? { name: "grade", label: "학년", type: "select", required: false, options: gradeField.options } : { name: "grade", label: "학년", type: "text", required: false },
+        { name: "email", label: "이메일", type: "email", required: false, placeholder: "name@example.com" },
+        { name: "phone", label: "연락처", type: "tel", required: false, placeholder: "010-0000-0000", pattern: "^[0-9-]{9,13}$", patternMsg: "연락처는 숫자와 -만 입력해 주세요." },
+      ], "명단에 추가", function (v, api) {
+        if (roster.some(function (r) { return r.id === v.id; })) return api.fail("id", "이미 등록된 학번입니다.");
+        var r = { id: v.id, name: v.name.trim() };
+        ["department", "grade", "email", "phone"].forEach(function (k) { if (v[k]) r[k] = v[k]; });
+        roster.push(r);
+        setExcluded(v.id, false);
+        sync();
+      }),
+    ]);
+    var addBtn = button("＋ 학생 추가", "btn btn-primary btn-sm", function () {
+      addBox.hidden = !addBox.hidden;
+      addBtn.textContent = addBox.hidden ? "＋ 학생 추가" : "추가 닫기";
+      if (!addBox.hidden) { var f = addBox.querySelector("input"); if (f) f.focus(); }
+    });
+
+    function stat(label, value) { return h("div", { class: "ad-stat" }, [h("b", {}, String(value)), h("span", {}, label)]); }
+    return h("div", { class: "card ad-card" }, [
+      h("div", { class: "ad-row between" }, [
+        h("h4", {}, "📋 수강생 현황 (" + roster.length + "명)"),
+        h("span", { class: "ad-row" }, [
+          addBtn,
+          button("현황 CSV 내려받기", "btn btn-ghost btn-sm", function () { download("수강생_현황.csv", toCsv(head, rows), "text/csv"); }),
+          confirmButton("명단 모두 지우기", "btn btn-ghost btn-sm", function () {
+            roster.forEach(function (r) { setExcluded(r.id, true); });
+            roster.length = 0;
+            sync();
+          }),
+        ]),
+      ]),
+      h("div", { class: "ad-stats" }, [
+        stat("등록 수강생", roster.length + "명"),
+        stat("수강 신청서", apps.length + "건"),
+        stat("지금까지 수업", held + "회"),
+        stat("평균 출석률", roster.length && held ? Math.round(attSum / (roster.length * held) * 100) + "%" : "-"),
+      ]),
+      addBox,
+      roster.length ? search : null,
+      roster.length ? h("div", { class: "ad-table-wrap" }, [
+        h("table", { class: "ad-table ad-status-table" }, [
+          h("thead", {}, [h("tr", {}, head.map(function (x) { return h("th", {}, x); }).concat([h("th", {}, "")]))]),
+          tbody,
+        ]),
+      ]) : h("p", { class: "cal-empty" }, "아직 등록된 수강생이 없습니다. 수강 신청을 승인하거나 '＋ 학생 추가'로 등록하세요."),
+      excluded.length ? h("div", { class: "ad-excluded" }, [
+        h("p", { class: "field-hint" }, "반려했거나 명단에서 뺀 신청자 (" + excluded.length + "명)"),
+        h("div", { class: "ad-row" }, excluded.map(function (id) {
+          return button("↩ " + appOf[id].name + " (" + id + ") 다시 승인", "ad-mini", function () {
+            setExcluded(id, false);
+            roster.push({ id: id, name: String(appOf[id].name).trim(), from: "apply" });
+            sync();
+          });
+        })),
+      ]) : null,
+    ]);
+  }
+
   function tabRoster() {
+    refreshShared();
     var roster = store.get("roster", []);
-    function sync() {
+    function saveRoster() {
       store.set("roster", roster);
       draft.classroom.rosterHashes = roster.map(function (r) { return KU.rosterHash(r.id, r.name); });
-      markDirty(); showTab("roster");
+      markDirty();
     }
-    function addMany(text) {
-      var added = 0, skipped = 0;
-      text.split(/\r?\n/).forEach(function (line) {
-        var p = line.replace(/^﻿/, "").split(/[,\t;]/).map(function (x) { return x.replace(/^["'\s]+|["'\s]+$/g, ""); });
-        if (!p[0] && !p[1]) return;
-        var dup = roster.some(function (r) { return r.id === p[0]; });
-        if (/^\d{10}$/.test(p[0]) && p[1] && !dup) { roster.push({ id: p[0], name: p[1] }); added++; } else skipped++;
-      });
-      return { added: added, skipped: skipped };
-    }
-    var result = h("p", { class: "field-hint", role: "status" });
-    var bulk = h("textarea", { rows: 5, placeholder: "2026000001, 홍길동\n2026000002, 김고려", "aria-label": "여러 명 붙여 넣기" });
-    var file = h("input", { type: "file", accept: ".csv,.txt", "aria-label": "명단 CSV 파일" });
-    function report(r) {
-      if (r.added) { sync(); return; }
-      result.textContent = "추가된 사람이 없습니다. (건너뜀 " + r.skipped + "줄 — 학번 10자리·이름 형식과 중복을 확인하세요)";
-    }
-    file.addEventListener("change", function () {
-      if (!file.files[0]) return;
-      var reader = new FileReader();
-      reader.onload = function () { report(addMany(String(reader.result))); };
-      reader.readAsText(file.files[0]);
-    });
+    function sync() { saveRoster(); showTab("roster"); }
     var hashCount = draft.classroom.rosterHashes.length;
 
     return [
       note("명단을 등록하면 명단에 있는 학번·이름만 '내 강의실'에 로그인할 수 있습니다. 명단이 비어 있으면 수강 코드만 맞으면 됩니다. 설정 파일에는 이름·학번 대신 지문(해시)만 들어가고, " + where("읽을 수 있는 명단은 이 브라우저에만 보관됩니다.", "읽을 수 있는 명단은 서버(Postgres)에 관리자만 볼 수 있게 보관됩니다.")),
+      note("수강 신청서가 들어오면 아래 '승인 대기'에 쌓입니다. 승인하면 수강생 명단에 등록되고, 위쪽 '저장하고 적용'을 누르면 그 학생이 '내 강의실'에 로그인할 수 있습니다."),
+      approvalCard(roster, sync),
       !roster.length && hashCount ? note("설정에는 " + hashCount + "명이 등록돼 있지만 이 브라우저에는 이름 목록이 없습니다. 보관해 둔 명단 CSV를 다시 불러오세요. (여기서 새로 추가하면 기존 등록은 대체됩니다.)") : null,
-      h("div", { class: "grid grid-2 ad-grid" }, [
-        h("div", { class: "card ad-card" }, [
-          h("h4", {}, "한 명 추가"),
-          makeForm([
-            { name: "id", label: "학번", type: "text", required: true, pattern: "^\\d{10}$", patternMsg: "학번은 숫자 10자리로 입력해 주세요." },
-            { name: "name", label: "이름", type: "text", required: true },
-          ], "명단에 추가", function (v, api) {
-            if (roster.some(function (r) { return r.id === v.id; })) return api.fail("id", "이미 등록된 학번입니다.");
-            roster.push({ id: v.id, name: v.name });
-            sync();
-          }),
-        ]),
-        h("div", { class: "card ad-card" }, [
-          h("h4", {}, "여러 명 한꺼번에"),
-          h("p", { class: "field-hint" }, "한 줄에 한 명씩 '학번, 이름'. 엑셀에서 두 열을 복사해 붙여도 됩니다."),
-          bulk,
-          h("div", { class: "ad-row" }, [
-            button("붙여 넣은 명단 추가", "btn btn-primary btn-sm", function () { report(addMany(bulk.value)); }),
-            h("label", { class: "ad-file" }, ["CSV 파일로 추가 ", file]),
-          ]),
-          result,
-        ]),
-      ]),
-      h("div", { class: "card ad-card" }, [
-        h("div", { class: "ad-row between" }, [
-          h("h4", {}, "등록된 수강생 (" + roster.length + "명)"),
-          h("span", { class: "ad-row" }, [
-            button("명단 CSV 내려받기", "btn btn-ghost btn-sm", function () {
-              download("수강생_명단.csv", toCsv(["학번", "이름"], roster.map(function (r) { return [r.id, r.name]; })), "text/csv");
-            }),
-            confirmButton("명단 모두 지우기", "btn btn-ghost btn-sm", function () { roster = []; sync(); }),
-          ]),
-        ]),
-        roster.length ? h("div", { class: "ad-table-wrap" }, [
-          h("table", { class: "ad-table" }, [
-            h("thead", {}, [h("tr", {}, [h("th", {}, "번호"), h("th", {}, "학번"), h("th", {}, "이름"), h("th", {}, "")])]),
-            h("tbody", {}, roster.map(function (r, i) {
-              return h("tr", {}, [
-                h("td", {}, i + 1), h("td", {}, r.id), h("td", {}, r.name),
-                h("td", {}, [button("삭제", "ad-mini danger", function () { roster.splice(i, 1); sync(); })]),
-              ]);
-            })),
-          ]),
-        ]) : h("p", { class: "cal-empty" }, "아직 등록된 수강생이 없습니다."),
-      ]),
+      statusCard(roster, sync),
       h("div", { class: "card ad-card" }, [
         h("h4", {}, "수강 코드 바꾸기"),
         h("p", { class: "field-hint" }, "수강생이 로그인할 때 쓰는 공용 코드입니다. 설정 파일에는 지문(해시)만 저장됩니다."),
@@ -1000,6 +1207,7 @@
 
   /* ── 탭: 내역 확인 ── */
   function tabRecords() {
+    refreshShared();
     var roster = store.get("roster", []);
     function nameOf(id) {
       var r = roster.filter(function (x) { return x.id === id; })[0];
@@ -1282,7 +1490,11 @@
     var backTo = sessionStorage.getItem(SESSION_KEY + ":goto");
     sessionStorage.removeItem(SESSION_KEY + ":goto");
     if (backTo && document.getElementById(backTo)) {
-      setTimeout(function () { document.getElementById(backTo).scrollIntoView(); }, 60);
+      setTimeout(function () {
+        var el = document.getElementById(backTo);
+        if (el.tagName === "DETAILS") el.open = true; // 고친 주차는 펼쳐서 보여 줌
+        el.scrollIntoView();
+      }, 60);
     }
   } catch (e) { /* 무시 */ }
 

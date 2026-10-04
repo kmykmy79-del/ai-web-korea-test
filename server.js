@@ -1,4 +1,4 @@
-/* AI WEB 사이트 서버 (Railway에서 실행)
+/* 디지털 교육 사이트 서버 (Railway에서 실행)
  * · 사이트 파일(index.html 등)을 그대로 보여 주고
  * · 사이트에서 생긴 데이터(투표·수강 신청·출석·과제 제출·명단·관리자 수정)를 Postgres에 저장합니다.
  *
@@ -268,7 +268,7 @@ function start() {
   const port = Number(process.env.PORT) || 8080;
   db.init()
     .then(() => {
-      app.listen(port, () => console.log(`AI WEB 서버 시작: 포트 ${port}, 저장소 ${db.kind}`));
+      app.listen(port, () => console.log(`디지털 교육 서버 시작: 포트 ${port}, 저장소 ${db.kind}`));
     })
     .catch((e) => {
       console.error("데이터베이스를 준비하지 못했습니다:", e);

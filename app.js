@@ -451,7 +451,88 @@
     ]);
   }
 
-  var weekList = h("div", { class: "week-list" }, weeks.map(function (w) {
+  // 유튜브 주소 → 영상 ID (watch?v= · youtu.be · shorts · embed · live 주소 모두)
+  function ytId(url) {
+    var m = /(?:youtube\.com\/(?:watch\?(?:\S*?&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/.exec(url || "");
+    return m ? m[1] : "";
+  }
+  // 구글 드라이브 자료 종류별 아이콘
+  function matIcon(url) {
+    if (/\/document\//.test(url)) return "📄";
+    if (/\/spreadsheets\//.test(url)) return "📊";
+    if (/\/presentation\//.test(url)) return "📽️";
+    if (/\/folders\//.test(url)) return "📁";
+    return "📎";
+  }
+  var isHttps = function (u) { return /^https:\/\//.test(u || ""); };
+
+  // 강의 자료: 구글 드라이브 링크 목록
+  function materialsBox(w) {
+    var list = (w.materials || []).filter(function (m) { return isHttps(m.url); });
+    if (!list.length) return null;
+    return h("div", {}, [
+      h("h4", {}, "강의 자료"),
+      h("div", { class: "meta-row mat-list" }, list.map(function (m) {
+        return h("a", { class: "contact mat-link", href: m.url, target: "_blank", rel: "noopener" }, [
+          h("span", { "aria-hidden": "true" }, matIcon(m.url)), m.label || "구글 드라이브 자료",
+          h("span", { class: "sr-only" }, " (새 창)"),
+        ]);
+      })),
+    ]);
+  }
+  // 참고 영상: 유튜브는 미리보기 이미지를 누르면 그 자리에서 재생(embed), 그 밖의 주소는 링크
+  function videosBox(w) {
+    var list = (w.videos || []).filter(function (v) { return isHttps(v.url); });
+    if (!list.length) return null;
+    var yt = list.filter(function (v) { return ytId(v.url); });
+    var others = list.filter(function (v) { return !ytId(v.url); });
+    return h("div", {}, [
+      h("h4", {}, "참고 영상"),
+      yt.length ? h("div", { class: "yt-grid" }, yt.map(function (v) {
+        var id = ytId(v.url);
+        return h("figure", { class: "yt" }, [
+          h("button", { class: "yt-frame", type: "button", "data-yt": id, "aria-label": (v.label || "영상") + " 재생" }, [
+            h("img", { src: "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg", alt: "", loading: "lazy" }),
+            h("span", { class: "yt-play", "aria-hidden": "true" }, "▶"),
+          ]),
+          v.label ? h("figcaption", {}, v.label) : null,
+        ]);
+      })) : null,
+      others.length ? h("div", { class: "meta-row" }, others.map(function (v) {
+        return h("a", { class: "contact video-link", href: v.url, target: "_blank", rel: "noopener" }, [
+          h("span", { "aria-hidden": "true" }, "▶"), v.label || v.url,
+        ]);
+      })) : null,
+    ]);
+  }
+  // 미리보기를 누르면 유튜브 재생기로 바꿉니다.
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-yt]");
+    if (!b) return;
+    var f = document.createElement("iframe");
+    f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(b.getAttribute("data-yt")) + "?autoplay=1&rel=0";
+    f.title = (b.getAttribute("aria-label") || "영상").replace(/ 재생$/, "");
+    f.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+    f.allowFullscreen = true;
+    f.className = "yt-iframe";
+    b.replaceWith(f);
+  });
+
+  // 주차 목록: 관리자 로그인 중이면 주차마다 수정·삭제, 끝에 '주차 추가'가 붙습니다(admin.js).
+  var weekList = h("div", { class: "week-list" });
+  var weeksDrawn = false;
+  function renderWeeks() {
+    weekList.textContent = "";
+    weeks.forEach(function (w, idx) {
+      var card = weekCard(w);
+      if (weeksDrawn) card.classList.add("in"); // 다시 그릴 때는 등장 효과 없이 바로 보이게
+      if (window.KU && window.KU.onWeekCard) window.KU.onWeekCard(card, w, idx);
+      weekList.appendChild(card);
+    });
+    if (window.KU && window.KU.onWeekList) window.KU.onWeekList(weekList);
+    weeksDrawn = true;
+  }
+  function weekCard(w) {
     return h("details", { class: "card week-item reveal", id: "week-" + w.week }, [
       h("summary", {}, [
         h("div", { class: "week-num" }, [h("span", {}, [h("b", {}, w.week), "주차"])]),
@@ -469,19 +550,14 @@
           h("span", { class: "contact" }, [h("span", { "aria-hidden": "true" }, "🗓️"), h("b", {}, "날짜·시간"), fmtDate(w._date) + " " + w._time]),
           h("span", { class: "contact" }, [h("span", { "aria-hidden": "true" }, "📍"), h("b", {}, "장소"), w._place]),
         ]),
-        h("div", {}, [h("h4", {}, "학습 내용"), dotList(w.topics)]),
-        w.videos && w.videos.length ? h("div", {}, [
-          h("h4", {}, "참고 영상"),
-          h("div", { class: "meta-row" }, w.videos.map(function (v) {
-            return h("a", { class: "contact video-link", href: v.url, target: "_blank", rel: "noopener" }, [
-              h("span", { "aria-hidden": "true" }, "▶"), v.label,
-            ]);
-          })),
-        ]) : null,
+        h("div", {}, [h("h4", {}, "학습 내용"), dotList(w.topics || [])]),
+        materialsBox(w),
+        videosBox(w),
         w.assignment ? assignmentBox(w) : null,
       ]),
     ]);
-  }));
+  }
+  renderWeeks();
 
   /* 월간 달력 */
   var calTitle = h("h4", { class: "cal-title", "aria-live": "polite" });
@@ -641,7 +717,7 @@
     return m ? m[1] : "";
   }
   var folio = C.portfolio;
-  var COVER_ICON = { "웹앱": "📱", "대시보드": "📈", "웹페이지": "📄" };
+  var COVER_ICON = { "수업 설계": "🧑‍🏫", "수업 자료": "📚", "영상": "🎬", "웹앱": "📱", "대시보드": "📈", "웹페이지": "📄" };
   var folioBox = h("div", { class: "folio-box" });
   var folioDrawn = false;
   // 카드 목록 그리기. 관리자가 추가·수정·삭제하면 다시 불립니다.
@@ -1463,6 +1539,8 @@
     hashSecret: hashSecret, rosterHash: rosterHash, sha256: sha256, weeks: weeks,
     fmtDateTime: fmtDateTime, fmtShort: fmtShort, driveId: driveId,
     api: api, // 서버(Postgres) 저장 상태 · 관리자 서버 로그인
+    ytId: ytId,
+    weekList: { refresh: renderWeeks }, // 관리자 로그인·로그아웃 때 주차 수정 버튼 다시 그리기
     // 화면 아래에 잠깐 뜨는 알림
     toast: function (msg) {
       var t = h("div", { class: "toast", role: "status" }, msg);
