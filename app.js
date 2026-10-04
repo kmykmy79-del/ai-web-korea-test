@@ -10,6 +10,10 @@
 
   // 브라우저 저장소(localStorage). 쓸 수 없는 환경에서는 새로고침 전까지만 기억합니다.
   var memory = {};
+  function localSet(k, v) {
+    memory[k] = v;
+    try { localStorage.setItem("kucourse:" + k, JSON.stringify(v)); } catch (e) { /* memory에만 저장 */ }
+  }
   var store = {
     get: function (k, def) {
       try {
@@ -19,10 +23,109 @@
       return k in memory && memory[k] !== null ? memory[k] : def;
     },
     set: function (k, v) {
-      memory[k] = v;
-      try { localStorage.setItem("kucourse:" + k, JSON.stringify(v)); } catch (e) { /* memory에만 저장 */ }
+      localSet(k, v);
+      if (api.on && SHARED[k]) api.push(k, v);
+      if (api.on && k === "session") api.refresh(["attendance", "submissions", "pollVotes"]); // 로그인한 학생의 기록 받아 오기
     },
   };
+
+  /* ── 서버(Postgres) 저장 ──
+   * Railway 서버에서 열리면 함께 쓰는 데이터(투표·신청·출석·과제·명단·관리자 수정)를 서버에 저장하고 불러옵니다.
+   * 파일로 열거나 서버가 없는 곳에 올리면 예전처럼 이 브라우저에만 저장합니다. */
+  var SHARED = { config: 1, pollVotes: 1, applications: 1, attendance: 1, submissions: 1, roster: 1 };
+  var api = {
+    on: false, admin: false, synced: {}, queue: Promise.resolve(), pending: 0, error: "",
+    token: function () { try { return localStorage.getItem("kucourse:apiToken") || ""; } catch (e) { return ""; } },
+    setToken: function (t) { try { if (t) localStorage.setItem("kucourse:apiToken", t); else localStorage.removeItem("kucourse:apiToken"); } catch (e) { /* 무시 */ } },
+    url: function (keys) {
+      var s = store.get("session", null), q = [];
+      if (s && s.id) q.push("student=" + encodeURIComponent(s.id));
+      if (keys) q.push("keys=" + keys.join(","));
+      return "/api/state" + (q.length ? "?" + q.join("&") : "");
+    },
+    // 서버에서 받은 값을 이 브라우저에 반영합니다.
+    take: function (r) {
+      api.admin = !!r.admin;
+      Object.keys(r.data || {}).forEach(function (k) {
+        if (!SHARED[k]) return;
+        api.synced[k] = window.KVOps.copy(r.data[k]);
+        localSet(k, r.data[k]);
+      });
+    },
+    // 처음 열 때는 화면을 그리기 전에 받아야 하므로 기다렸다가(동기) 받습니다.
+    loadSync: function (keys) {
+      if (!/^https?:$/.test(location.protocol) || !window.KVOps || !window.XMLHttpRequest) return false;
+      try {
+        var x = new XMLHttpRequest();
+        x.open("GET", api.url(keys), false);
+        if (api.token()) x.setRequestHeader("X-Admin-Token", api.token());
+        x.send(null);
+        if (x.status !== 200) return false;
+        var r = JSON.parse(x.responseText);
+        if (!r || !r.ok) return false;
+        api.take(r);
+        return true;
+      } catch (e) { return false; }
+    },
+    refresh: function (keys) { if (api.on) api.loadSync(keys); },
+    // 바뀐 부분만 계산해 순서대로 보냅니다. 실패하면 3번까지 다시 시도합니다.
+    push: function (k, v) {
+      var ops = window.KVOps.diff(api.synced[k], v);
+      api.synced[k] = window.KVOps.copy(v);
+      if (!ops.length) return;
+      api.pending++;
+      api.queue = api.queue.then(function () {
+        function send(n) {
+          return fetch("/api/kv/" + k, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Admin-Token": api.token() },
+            body: JSON.stringify({ ops: ops }),
+          }).then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (j) {
+              if (!res.ok) throw Object.assign(new Error(j.error || "저장 실패 (" + res.status + ")"), { status: res.status });
+            });
+          }).catch(function (e) {
+            if (n < 3 && !(e.status >= 400 && e.status < 500)) {
+              return new Promise(function (ok) { setTimeout(ok, 1500 * (n + 1)); }).then(function () { return send(n + 1); });
+            }
+            throw e;
+          });
+        }
+        return send(0).then(function () { api.error = ""; }, function (e) {
+          api.error = e.message;
+          console.warn("[서버 저장 실패]", k, e.message);
+          if (window.KU && window.KU.toast) window.KU.toast("서버에 저장하지 못했습니다: " + e.message);
+        });
+      }).then(function () { api.pending--; });
+    },
+    // 관리자 로그인: 서버에서 비밀번호를 한 번 더 확인하고 7일짜리 표(토큰)를 받습니다.
+    login: function (pw) {
+      return fetch("/api/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pw }) })
+        .then(function (res) { return res.json().then(function (j) { if (!res.ok || !j.token) throw new Error(j.error || "서버 로그인 실패"); return j.token; }); })
+        .then(function (t) { api.setToken(t); api.refresh(); return true; });
+    },
+    logout: function () {
+      var t = api.token();
+      api.setToken("");
+      api.admin = false;
+      if (t) fetch("/api/admin/logout", { method: "POST", headers: { "X-Admin-Token": t } }).catch(function () { /* 무시 */ });
+    },
+  };
+  api.on = api.loadSync(null);
+
+  // 다른 사람의 투표를 15초마다 받아 옵니다. (바뀌었으면 투표 화면 다시 그리기)
+  if (api.on) setInterval(function () {
+    if (api.pending || document.hidden) return;
+    fetch(api.url(["pollVotes"]), { headers: { "X-Admin-Token": api.token() }, cache: "no-store" })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (r) {
+        if (!r || !r.ok || api.pending) return;
+        if (window.KVOps.same(r.data.pollVotes, api.synced.pollVotes)) return;
+        api.take({ admin: api.admin, data: { pollVotes: r.data.pollVotes } });
+        try { window.dispatchEvent(new StorageEvent("storage", { key: "kucourse:pollVotes" })); } catch (e) { /* 무시 */ }
+      })
+      .catch(function () { /* 다음에 다시 */ });
+  }, 15000);
 
   // SHA-256: 비밀번호·수강 코드·명단을 원문 대신 지문(해시)으로 저장하고 비교합니다.
   function sha256(text) {
@@ -91,7 +194,7 @@
       else if (k === "style") el.style.cssText = attrs[k];
       else el.setAttribute(k, attrs[k]);
     });
-    [].concat(children || []).forEach(function (c) {
+    [].concat(children == null ? [] : children).forEach(function (c) { // 숫자 0도 표시되도록 (예: 출석 0회)
       if (c === null || c === undefined || c === "") return;
       el.appendChild(typeof c === "object" ? c : document.createTextNode(String(c)));
     });
@@ -1359,6 +1462,15 @@
     h: h, store: store, makeForm: makeForm, config: C, baseStamp: baseStamp, usingOverride: usingOverride,
     hashSecret: hashSecret, rosterHash: rosterHash, sha256: sha256, weeks: weeks,
     fmtDateTime: fmtDateTime, fmtShort: fmtShort, driveId: driveId,
+    api: api, // 서버(Postgres) 저장 상태 · 관리자 서버 로그인
+    // 화면 아래에 잠깐 뜨는 알림
+    toast: function (msg) {
+      var t = h("div", { class: "toast", role: "status" }, msg);
+      document.body.appendChild(t);
+      setTimeout(function () { t.classList.add("show"); }, 50);
+      setTimeout(function () { t.classList.remove("show"); }, 4200);
+      setTimeout(function () { t.remove(); }, 4800);
+    },
     // 공지를 바꾼 뒤 새로고침 없이 다시 그립니다.
     notices: {
       refresh: function (items) {

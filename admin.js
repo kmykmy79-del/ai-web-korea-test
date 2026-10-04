@@ -19,14 +19,25 @@
   /* 관리자 로그인 상태는 이 브라우저에 저장되어 새로고침하거나 창을 닫았다 열어도 유지됩니다.
    * LOGIN_DAYS일이 지나거나, 로그아웃하거나, 비밀번호가 바뀌면 다시 로그인해야 합니다. */
   var LOGIN_DAYS = 7;
+  // 서버(Postgres)에 연결돼 있으면 서버 로그인 표(토큰)도 있어야 관리자로 봅니다.
+  var API = KU.api || { on: false };
   function isAdmin() {
     var s = store.get("adminLogin", null);
+    if (API.on && !API.admin) return false;
     return !!(s && s.hash && s.hash === C.admin.passwordHash && Date.now() < s.until);
   }
   function setAdmin(on) {
     store.set("adminLogin", on ? { hash: C.admin.passwordHash, until: Date.now() + LOGIN_DAYS * 86400000 } : null);
+    if (!on && API.on) API.logout();
     showAdminState();
   }
+  // 저장 위치 안내: 서버 연결 여부에 따라 문구를 고릅니다.
+  function where(localText, serverText) { return API.on ? serverText : localText; }
+  // 서버 저장이 끝난 뒤 새로고침합니다. (바로 새로고침하면 보내던 저장이 끊길 수 있음)
+  function reloadAfterSave() {
+    (API.on ? API.queue : Promise.resolve()).then(function () { location.reload(); });
+  }
+  var SAVED_ALL = "추가·수정·삭제는 바로 서버(Postgres)에 저장되어 모든 방문자에게 반영됩니다.";
   // 관리자 로그인 중이면 자물쇠가 열리고, 각 섹션에 '편집' 버튼이 나타납니다.
   function showAdminState() {
     var on = isAdmin();
@@ -252,7 +263,7 @@
           })),
         ]),
       ]) : h("p", { class: "cal-empty" }, "아직 만든 설문이 없습니다."),
-      h("p", { class: "field-hint" }, "이 표는 관리자에게만 보입니다. 숨긴 설문도 여기에 남으며 '보이기'로 되돌릴 수 있습니다. 참여 수는 이 브라우저에 저장된 응답만 셉니다. 추가·수정·삭제는 바로 이 브라우저에 저장되며, 모든 방문자에게 보이게 하려면 config.js를 내려받아 교체하세요."),
+      h("p", { class: "field-hint" }, "이 표는 관리자에게만 보입니다. 숨긴 설문도 여기에 남으며 '보이기'로 되돌릴 수 있습니다. " + where("참여 수는 이 브라우저에 저장된 응답만 셉니다. 추가·수정·삭제는 바로 이 브라우저에 저장되며, 모든 방문자에게 보이게 하려면 config.js를 내려받아 교체하세요.", "참여 수는 서버에 모인 모든 응답입니다. " + SAVED_ALL)),
     ]));
   };
 
@@ -468,7 +479,7 @@
         editing >= 0 ? button("수정 취소", "ad-mini", function () { editingEvent = -1; KU.calendar.refresh(); }) : null,
       ]),
       lastAlso ? h("p", { class: "also-done", role: "status" }, "✓ " + lastAlso) : null,
-      h("p", { class: "field-hint" }, "추가·수정·삭제는 바로 이 브라우저에 저장됩니다. 모든 방문자에게 보이게 하려면 자물쇠 → 설정 파일·보안에서 config.js를 내려받아 교체하세요."),
+      h("p", { class: "field-hint" }, where("추가·수정·삭제는 바로 이 브라우저에 저장됩니다. 모든 방문자에게 보이게 하려면 자물쇠 → 설정 파일·보안에서 config.js를 내려받아 교체하세요.", SAVED_ALL)),
     ]));
     lastAlso = "";
   };
@@ -481,7 +492,7 @@
     dirty = false;
     if (!reload) return updateStatus();
     try { sessionStorage.setItem(SESSION_KEY + (anchor ? ":goto" : ":open"), anchor || "1"); } catch (e) { /* 무시 */ }
-    location.reload();
+    reloadAfterSave();
   }
 
   /* ── 작은 도구들 ── */
@@ -580,8 +591,9 @@
         makeForm(NEW_PW, "비밀번호 만들기", function (v, api) {
           if (v.pw !== v.pw2) return api.fail("pw2", "두 비밀번호가 서로 다릅니다.");
           draft.admin.passwordHash = C.admin.passwordHash = KU.hashSecret(v.pw);
-          saveDraft(false);
-          setAdmin(true); close(); openPanel("security");
+          var made = function () { saveDraft(false); setAdmin(true); close(); openPanel("security"); };
+          if (!API.on) return made();
+          API.login(v.pw).then(made, function (e) { api.fail("pw", e.message); });
         }));
     } else {
       close = dialog("관리자 로그인", "", makeForm([
@@ -593,7 +605,10 @@
           return api.fail("pw", "비밀번호가 맞지 않습니다.");
         }
         fails = 0;
-        setAdmin(true); close(); openPanel();
+        if (!API.on) { setAdmin(true); close(); openPanel(); return; }
+        // 서버에서도 확인받고 표(토큰)를 받은 뒤, 전체 기록(신청·출석·과제·명단)을 받아 엽니다.
+        API.login(v.pw).then(function () { setAdmin(true); close(); openPanel(); },
+          function (e) { api.fail("pw", e.message); });
       }));
     }
   }
@@ -764,7 +779,7 @@
     select.addEventListener("change", show);
     show();
     return [
-      note("고친 뒤 위쪽 '저장하고 적용'을 누르면 이 브라우저에서 바로 반영됩니다. 모든 방문자에게 보이게 하려면 '설정 파일·보안' 탭에서 config.js를 내려받아 교체하세요."),
+      note(where("고친 뒤 위쪽 '저장하고 적용'을 누르면 이 브라우저에서 바로 반영됩니다. 모든 방문자에게 보이게 하려면 '설정 파일·보안' 탭에서 config.js를 내려받아 교체하세요.", "고친 뒤 위쪽 '저장하고 적용'을 누르면 서버(Postgres)에 저장되어 모든 방문자에게 바로 반영됩니다.")),
       h("div", { class: "ad-row" }, [h("b", {}, "편집할 영역"), select]),
       area,
     ];
@@ -843,7 +858,7 @@
     var list = draft.popups = draft.popups || [];
     draft.popup = draft.popup || { delaySeconds: 2, hideTodayLabel: "오늘 하루 보지 않기" };
     return [
-      note("사이트에 접속하면 '사용' 중인 팝업이 차례로 뜹니다. 방문자가 '오늘 하루 보지 않기'를 누른 팝업은 그날 자정까지 그 사람에게 다시 뜨지 않습니다. 추가·수정·삭제는 바로 이 브라우저에 저장되며, 모든 방문자에게 적용하려면 config.js를 내려받아 교체하세요."),
+      note("사이트에 접속하면 '사용' 중인 팝업이 차례로 뜹니다. 방문자가 '오늘 하루 보지 않기'를 누른 팝업은 그날 자정까지 그 사람에게 다시 뜨지 않습니다. " + where("추가·수정·삭제는 바로 이 브라우저에 저장되며, 모든 방문자에게 적용하려면 config.js를 내려받아 교체하세요.", SAVED_ALL)),
       h("div", { class: "card ad-card" }, [
         h("div", { class: "ad-row between" }, [
           h("h4", {}, "📣 팝업 목록 (" + list.length + "개)"),
@@ -922,7 +937,7 @@
     var hashCount = draft.classroom.rosterHashes.length;
 
     return [
-      note("명단을 등록하면 명단에 있는 학번·이름만 '내 강의실'에 로그인할 수 있습니다. 명단이 비어 있으면 수강 코드만 맞으면 됩니다. 설정 파일에는 이름·학번 대신 지문(해시)만 들어가고, 읽을 수 있는 명단은 이 브라우저에만 보관됩니다."),
+      note("명단을 등록하면 명단에 있는 학번·이름만 '내 강의실'에 로그인할 수 있습니다. 명단이 비어 있으면 수강 코드만 맞으면 됩니다. 설정 파일에는 이름·학번 대신 지문(해시)만 들어가고, " + where("읽을 수 있는 명단은 이 브라우저에만 보관됩니다.", "읽을 수 있는 명단은 서버(Postgres)에 관리자만 볼 수 있게 보관됩니다.")),
       !roster.length && hashCount ? note("설정에는 " + hashCount + "명이 등록돼 있지만 이 브라우저에는 이름 목록이 없습니다. 보관해 둔 명단 CSV를 다시 불러오세요. (여기서 새로 추가하면 기존 등록은 대체됩니다.)") : null,
       h("div", { class: "grid grid-2 ad-grid" }, [
         h("div", { class: "card ad-card" }, [
@@ -1025,7 +1040,7 @@
       ]);
     }
     return [
-      note("이 브라우저에 저장된 기록만 보입니다. 서버가 없어서 수강생이 각자 기기에서 남긴 기록은 여기로 모이지 않습니다."),
+      note(where("이 브라우저에 저장된 기록만 보입니다. 서버가 없어서 수강생이 각자 기기에서 남긴 기록은 여기로 모이지 않습니다.", "수강생들이 각자 기기에서 남긴 기록이 서버(Postgres)에 모여 여기에 모두 보입니다.")),
       block("출석", "출석_내역.csv", attHead, attRows, "출석 기록이 없습니다."),
       block("과제 제출", "과제_제출_내역.csv", subHead, subRows, "과제 제출 기록이 없습니다."),
       block("수강 신청", "수강_신청_내역.csv", appHead, appRows, "수강 신청 기록이 없습니다."),
@@ -1082,11 +1097,12 @@
       h("div", { class: "card ad-card" }, [
         h("h4", {}, "↩️ 이 브라우저의 수정본"),
         h("p", {}, KU.usingOverride
-          ? "지금 이 브라우저는 관리자 화면에서 고친 수정본을 보여 주고 있습니다. 다른 방문자는 서버의 config.js를 봅니다."
+          ? where("지금 이 브라우저는 관리자 화면에서 고친 수정본을 보여 주고 있습니다. 다른 방문자는 서버의 config.js를 봅니다.",
+            "지금 사이트는 관리자 화면에서 고친 수정본(서버 Postgres에 저장)을 모든 방문자에게 보여 주고 있습니다.")
           : "지금은 config.js 원본 그대로 보여 주고 있습니다."),
         confirmButton("수정본 지우고 config.js 원본으로 되돌리기", "btn btn-ghost btn-sm", function () {
           store.set("config", null);
-          location.reload();
+          reloadAfterSave();
         }),
       ]),
       h("div", { class: "card ad-card" }, [
@@ -1187,7 +1203,7 @@
       h("div", { class: "inline-bar" }, [
         button("저장하고 적용", "btn btn-primary btn-sm", function () { saveDraft(true, cfg.anchor); }),
         button("취소", "btn btn-ghost btn-sm", function () { inline.close(true); }),
-        h("span", { class: "field-hint" }, "저장하면 이 브라우저에 바로 반영됩니다. 모든 방문자에게 보이게 하려면 자물쇠 → 설정 파일·보안에서 config.js를 내려받아 교체하세요."),
+        h("span", { class: "field-hint" }, where("저장하면 이 브라우저에 바로 반영됩니다. 모든 방문자에게 보이게 하려면 자물쇠 → 설정 파일·보안에서 config.js를 내려받아 교체하세요.", "저장하면 서버(Postgres)에 저장되어 모든 방문자에게 바로 반영됩니다.")),
       ]),
     ]);
     hidden[0].parentNode.insertBefore(box, hidden[0]);

@@ -15,11 +15,11 @@ window.SITE_CONFIG = {
     logoImage: "images/logo.webp", // 로고 이미지 경로. 비워 두면 아래 이모지가 로고로 쓰입니다.
     logoEmoji: "🌸",
     // 첫 화면·브라우저 탭의 제목 옆에 붙는 소속 줄. 비워 두면 위의 "대학교 학과"가 표시됩니다.
-    brandSub: "박정원(한국외국어대학교)",
+    brandSub: "김민영(고려대학교 AI중심대학사업단)",
     // 헤더 왼쪽 위 제목의 윗줄. 비워 두면 위의 소속 줄(brandSub)이 표시됩니다.
     headerSub: "AI 기반 데이터 활용능력 배양",
     // 헤더 로고 옆 제목에 붙는 사이트 버전. 내용을 고쳐 다시 올릴 때 숫자를 올리세요. 비워 두면 표시하지 않습니다.
-    version: "v1.3",
+    version: "v1.4",
   },
 
   /* ── 헤더 메뉴 (id는 아래 각 섹션의 id와 같아야 합니다) ── */
@@ -629,10 +629,10 @@ window.SITE_CONFIG = {
     id: "instructor",
     eyebrow: "Instructor",
     title: "교수자",
-    name: "박정원 교수",
-    nameSub: "朴正元 | Park Jeong Weon",
-    role: "한국외국어대학교 중국학대학 중국언어문화학부",
-    roleSub: "Division of Chinese Language, Literature and Culture",
+    name: "김민영 교수",
+    nameSub: "", // 이름 옆 작은 글씨(한자·영문 이름 등). 비워 두면 표시하지 않습니다.
+    role: "고려대학교 AI중심대학사업단",
+    roleSub: "", // 소속 아래 작은 글씨(영문 소속 등). 비워 두면 표시하지 않습니다.
     photo: "images/professor.jpg", // 사진 파일 경로. 비워 두면 이름 첫 글자가 표시됩니다.
     // 소개 글(여러 문단 가능). 비워 두면 표시하지 않습니다.
     bio: [
@@ -671,7 +671,7 @@ window.SITE_CONFIG = {
 
   /* ── 맨 아래 한 줄 ─────────────────────────────────────── */
   footer: {
-    copyright: "Copyright 2026 ⓒ AI WEB, All Rights Reserved. | 박정원(한국외국어대학교)",
+    copyright: "Copyright 2026 ⓒ AI WEB, All Rights Reserved. | 김민영(고려대학교 AI중심대학사업단)",
     links: [
       { icon: "✉️", label: "AI 뉴스레터 빌더", text: "www.kletter.kr", href: "https://www.kletter.kr" },
       { icon: "🎓", label: "AI 강의콘텐츠 빌더", text: "www.kteacher.kr", href: "https://www.kteacher.kr" },
